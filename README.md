@@ -1,19 +1,19 @@
-#openMVG源码解析
+# openMVG源码解析
 
-##源码结构
+## 源码结构
 ### 转载自 [知乎@迷途小书童](https://zhuanlan.zhihu.com/p/97210820?from_voters_page=true)
-####openMVG尽力提供可读性强的代码，方便二次开发，核心库尽可能精简，全局分成了几个大的模块：
+#### openMVG尽力提供可读性强的代码，方便二次开发，核心库尽可能精简，全局分成了几个大的模块：
 * 核心库：各个功能的核心算法实现
 * 样例：教你怎么用核心库实现高级算法
 * 工具链：也就是连起来用咯（无序影像特征匹配，完整SfM，影像色彩处理）
-####src部分模块 
+#### src部分模块 
   * /src/dependencies 依赖库，包括gLfw, cereal, osi clp；
   * /src/nonFree SIFT特征提取
   * /src/openMVG 是多视图几何（MVG）和SfM的核心库
   * /src/openMVG_Samples 展示如何使用核心库实现高级算法，主要涉及相对定向、特征匹配的鲁棒策略等；
   * /src/software 提供用户使用的软件接口，主要实现了SfM及可视化，视觉里程计（Visual Odometry）,地理坐标系转换，UI便于输入控制点数据；
   * /src/third_party 是底层第三方库，主要有ceres-solver，eigen，fast，stlplus3，jpeg等；
-####/src/openMVG 核心库各个模块名称、功能、包含的文件数如下表所示：
+#### /src/openMVG 核心库各个模块名称、功能、包含的文件数如下表所示：
 |  模块   | 功能  |
 |  ----  | ----  |
 | cameras  | 定义针孔相机的几何模型，和多种畸变模型（多项式,Brown,鱼眼） |
@@ -38,7 +38,7 @@
 | system | 单元格 |
 | tracks | 单元格 |
 
-####/src/third_party 外部第三方库
+#### /src/third_party 外部第三方库
 |  模块   | 功能  |
 |  ----  | ----  |
 |  ceres-solver   | 功能  |
@@ -71,7 +71,7 @@
 
 ## tutorial_demo.py
 
-###step1: main_SfMInit_ImageListing.cpp 
+### step1: main_SfMInit_ImageListing.cpp 
 输入图像和相机数据库，输出sfm_data.json包含图像尺寸，焦距（单位像素）
 ~~~
 $ openMVG_main_SfMInit_ImageListing -i ./ImageDataset_SceauxCastle/img -o ./ImageDataset_SceauxCastle/sfm_out/matches -d /home/mitom/Music/openMVG/src/openMVG/exif/sensor_width_database/sensor_width_camera_database.txt -c 3
@@ -83,13 +83,13 @@ const double ccdw = datasheet.sensorSize_;
 focal = std::max(width, height) * exifReader->getFocal() / ccdw;
 ...
 ~~~
-####相机焦距计算（单位像素）
+#### 相机焦距计算（单位像素）
 **focal = max(w, h) * F / S**
  * F：相机焦距长度(focal length，单位毫米mm)
  * w,h: 图片的宽高
  * S: ccd传感器孔径（sensor size，单位mm）
 
-###sfm_data.json
+### sfm_data.json
 ~~~json
 {
   ...,
@@ -139,7 +139,7 @@ focal = std::max(width, height) * exifReader->getFocal() / ccdw;
     ], ...
  }
 ~~~
-###step2: main_ComputeFeatures.cpp
+### step2: main_ComputeFeatures.cpp
 
 ~~~
 $ openMVG_main_ComputeFeatures -i ./ImageDataset_SceauxCastle/sfm_out/sfm_data.json -o ./ImageDataset_SceauxCastle/sfm_out/matches -m SIFT -f 1 -n 8
@@ -164,7 +164,7 @@ $ openMVG_main_ComputeFeatures -i ./ImageDataset_SceauxCastle/sfm_out/sfm_data.j
 Task done in (s): 22
 ~~~
 [知乎@灰灰-图像配准](https://zhuanlan.zhihu.com/p/75784915?from=singlemessage)
-####SfM数据结构
+#### SfM数据结构
 ~~~cpp
 struct SfM_Data
 {
