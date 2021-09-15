@@ -17,7 +17,7 @@
 |  模块   | 功能  |
 |  ----  | ----  |
 | cameras  | 定义针孔相机的几何模型，和多种畸变模型（多项式,Brown,鱼眼） |
-| clustering  | 单元格 |
+| clustering  | kmeans聚类 |
 | color_harmonization  | 单元格 |
 | exif  | 单元格 |
 | features  | 单元格 |
@@ -74,7 +74,29 @@
 ### step1: main_SfMInit_ImageListing.cpp 
 输入图像和相机数据库，输出sfm_data.json包含图像尺寸，焦距（单位像素）
 ~~~
-$ openMVG_main_SfMInit_ImageListing -i ./ImageDataset_SceauxCastle/img -o ./ImageDataset_SceauxCastle/sfm_out/matches -d /home/mitom/Music/openMVG/src/openMVG/exif/sensor_width_database/sensor_width_camera_database.txt -c 3
+$ openMVG_main_SfMInit_ImageListing -i ./ImageDataset_SceauxCastle/img -o ./ImageDataset_SceauxCastle/sfm_out -d /home/mitom/3DReconstruction/MVG_MVS/openMVG/src/openMVG/exif/sensor_width_database/sensor_width_camera_database.txt -c 3
+~~~
+~~~
+/home/mitom/3DReconstruction/MVG_MVS/openMVG/src/cmake-build-debug/Linux-x86_64-Debug/openMVG_main_SfMInit_ImageListing -i /home/mitom/3DReconstruction/MVG_MVS/data/ImageDataset_SceauxCastle/images -o /home/mitom/3DReconstruction/MVG_MVS/data/ImageDataset_SceauxCastle/sfm_out -d /home/mitom/3DReconstruction/MVG_MVS/openMVG/src/openMVG/exif/sensor_width_database/sensor_width_camera_database.txt -c 3
+ You called : 
+/home/mitom/3DReconstruction/MVG_MVS/openMVG/src/cmake-build-debug/Linux-x86_64-Debug/openMVG_main_SfMInit_ImageListing
+--imageDirectory /home/mitom/3DReconstruction/MVG_MVS/data/ImageDataset_SceauxCastle/images
+--sensorWidthDatabase /home/mitom/3DReconstruction/MVG_MVS/openMVG/src/openMVG/exif/sensor_width_database/sensor_width_camera_database.txt
+--outputDirectory /home/mitom/3DReconstruction/MVG_MVS/data/ImageDataset_SceauxCastle/sfm_out
+--focal -1
+--intrinsics 
+--camera_model 3
+--group_camera_model 1
+
+- Image listing -
+0%   10   20   30   40   50   60   70   80   90   100%
+|----|----|----|----|----|----|----|----|----|----|
+***************************************************
+
+SfMInit_ImageListing report:
+listed #File(s): 11
+usable #File(s) listed in sfm_data: 11
+usable #Intrinsic(s) listed in sfm_data: 1
 ~~~
 ~~~cpp
 ...
@@ -169,8 +191,8 @@ Task done in (s): 22
 struct SfM_Data
 {
 Views views;   /// 储存影像物理性质、索引号等基本信息
-Poses poses;   /// 储存影像外参数，包括旋转矩阵、平移矩阵
-Intrinsics intrinsics; /// 储存影像内参数，支持多组不同内参数
-Landmarks structure;   /// 物方点信息，物方点坐标及其tracks
+Poses poses;   /// 储存影像外参数，包括旋转矩阵、平移矩阵（相机姿态）
+Intrinsics intrinsics; /// 储存影像内参数，支持多组不同内参数(相机内参)
+Landmarks structure;   /// 物方点信息，物方点坐标及其tracks(二维视图特征关联的3D点)
 }
 ~~~
