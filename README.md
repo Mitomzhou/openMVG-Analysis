@@ -19,48 +19,48 @@
 |  ----  | ----  |
 | cameras  | 定义针孔相机的几何模型，和多种畸变模型（多项式,Brown,鱼眼） |
 | clustering  | kmeans聚类 |
-| color_harmonization  | 单元格 |
-| exif  | 单元格 |
-| features  | 单元格 |
-| geodesy  | 单元格 |
-| geometry  | 单元格 |
-| praph  | 单元格 |
+| color_harmonization  | 颜色协调模型 |
+| exif  | 可交换图像文件格式,获取相机焦距mm和图像等相关信息 |
+| features  | 特征点提取，特征描述，可存储特征点位置、尺度、方向(xyso)和描述子 |
+| geodesy  | 处理GPS信息的坐标转换，将GPS的经纬高转换为空间直角坐标系或UTM投影坐标系 |
+| geometry  | 定义三维空间位姿和三维变换 |
+| graph  | 单元格 |
 | graphics  | 单元格 |
 | image  | image数据存储以及IO，支持ppm,pgm,jpeg,png,tiff |
-| linearProgramming  | 单元格 |
-| matching  | 单元格 |
+| linearProgramming  | 线性规划算法，以来三方库OSI_CLP |
+| matching  | 实现特征匹配，包括基于描述子相似度的初始匹配和几何滤波剔除误匹配点 |
 | matching_image_collection  | 单元格 |
-| multiview  | 单元格 |
-| numeric  | 单元格 |
-| robust_estimation  | 单元格 |
-| sfm | 单元格 |
+| multiview  | 双视图及多视图的几何解算 |
+| numeric  | 基于Eigen库实现矩阵和向量的高级操作，以及相应数值计算如SVD、QR、LU分解 |
+| robust_estimation  | 鲁棒估计RANSAC算法 |
+| sfm | 运动恢复结构包括BA |
 | spherical | 单元格 |
 | stl | 单元格 |
 | system | 单元格 |
-| tracks | 单元格 |
+| tracks | 物方点在多张影像上的像点观测集合，利用union_find算法从两两特征匹配结果生成 |
 
 #### /src/third_party 外部第三方库
 |  模块   | 功能  |
 |  ----  | ----  |
-|  ceres-solver   | 功能  |
-|  cmdLine   | 功能  |
-|  CppUnitLite   | 功能  |
-|  cxsparse   | 功能  |
-|  easyexif   | 功能  |
-|  eigen   | 功能  |
+|  ceres-solver   | 一个便携式C++库，可用于建模和解决大型复杂的非线性最小二乘问题。  |
+|  cmdLine   | 用于处理带有命名参数的C++命令行的轻量级的库  |
+|  CppUnitLite   | 处理单元测试的轻量级库。  |
+|  cxsparse   | 为ceres-solver的稀疏矩阵计算提供支持。  |
+|  easyexif   | exif解析库简化版  |
+|  eigen   | 用于线性代数，矩阵和矢量运算，数值求解，仅由模板头文件组成的的高级C++库。 |
 |  fast   | 功能  |
-|  flann   | 功能  |
-|  histogram   | 功能  |
-|  hnswlib   | 功能  |
-|  htmlDoc   | 功能  |
+|  flann   | 用于在高维空间中执行快速近似最近邻搜索的库。  |
+|  histogram   | 计算数据统计分布的轻量级类。  |
+|  hnswlib   | 快速近似最近邻搜索  |
+|  htmlDoc   | 简化HTML数据导出的类。  |
 |  jpeg   | 功能  |
-|  lemon   | 功能  |
+|  lemon   | C ++模板库，为图网络计算提供提供常见的数据结构和算法。  |
 |  png   | 功能  |
-|  progress   | 功能  |
-|  stlplus3   | 功能  |
+|  progress   | 用于处理应用程序的进度状态的轻量级类。  |
+|  stlplus3   | C++ STL库，包含扩展的模板容器、可重用子系统、数据持久性和可移植组件。  |
 |  tiff   | 功能  |
-|  vectorGraphics   | 功能  |
-|  zlib   | 功能  |
+|  vectorGraphics   | 矢量图形库  |
+|  zlib   | 数据压缩用的库  |
 
 ## SfM Pipeline
 目前基本的 SfM 策略主要有2种，分别为增量式incremental和全局式global，如下图所示。增量式方法往往选择最优的种子像对建立初始场景（initialization），然后不添加新影像以扩展场景（image registration, triangulation, bundle adjustment），最后对整个场景光束法平差优化一次，调整所有相机的内、外参数和物方点（3D points）。而全局式方法是将输入所有影像，先同时解算相机的全局旋转矩阵（此过程称为rotation averaging），接着是全局平移矩阵（此过程称为translation averaging），再经前方交会（triangulation）初始化整个场景的物方点，最后对整个场景光束法平差，优化所有相机的内、外参数和物方点。一般而言，增量式方法多次光束法平差中会进行粗差探测与剔除（outlier filtering），整体较为鲁棒，缺点是时间效率低下且误差积累会产生场景偏移。而全局式方法整体同时解算，时间效率高，但严重依赖相对定向的质量，鲁棒性较差。
