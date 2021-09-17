@@ -1,8 +1,7 @@
 # openMVG源码解析
 
 ## 源码结构
-### 整体框架转载自 [知乎@迷途小书童](https://zhuanlan.zhihu.com/p/97210820?from_voters_page=true) 
-### 源码细节转载自 [CSDN@蒲毛](https://blog.csdn.net/qq_40084959/category_11086693.html)
+### 转载自 [知乎@迷途小书童](https://zhuanlan.zhihu.com/p/97210820?from_voters_page=true)
 #### openMVG尽力提供可读性强的代码，方便二次开发，核心库尽可能精简，全局分成了几个大的模块：
 * 核心库：各个功能的核心算法实现
 * 样例：教你怎么用核心库实现高级算法
@@ -342,7 +341,7 @@ Landmarks structure;   /// 物方点信息，物方点坐标及其tracks(二维�
                         */ 
 }
 ~~~
-数据与参数
+#### 数据与参数
 ~~~cpp
 std::string sSfM_Data_Filename;	 //main_SfMInit_ImageListing生成的文件的路径
 std::string sOutDir = "";		//输出文件夹
@@ -351,7 +350,7 @@ std::string sImage_Describer_Method = "SIFT_ANATOMY";		//使用的描述子
 bool bForce = false;		//
 std::string sFeaturePreset = "";		//描述子质量NORMAL，HIGH，ULTRA
 ~~~
-预设置
+#### 预设置
 ~~~cpp
 // 设置好描述子类型与描述子质量后，导出用于动态未来区域计算和/或加载的所用图像描述符和区域类型
 std::ofstream stream(sImage_describer.c_str());
@@ -363,7 +362,7 @@ archive(cereal::make_nvp("image_describer", image_describer));
 auto regionsType = image_describer->Allocate();
 archive(cereal::make_nvp("regions_type", regionsType));
 ~~~
-计算特征
+#### 计算特征
 ~~~cpp
 // 初始化每个视角
 Views::const_iterator iterViews = sfm_data.views.begin();
@@ -498,7 +497,7 @@ Graph statistics:
 
  Export Adjacency Matrix of the pairwise's geometric matches
 ~~~
-输入与输出说明
+#### 输入与输出说明
 ~~~cpp
 // 文件名
 std::string sSfM_Data_Filename;
@@ -541,7 +540,7 @@ int imax_iteration = 2048;
 // other->缓存区域提供程序（按需加载和存储区域）
 unsigned int ui_max_cache_size = 0;
 ~~~
-匹配流程
+#### 匹配流程
 
 a. 计算描述子匹配
 ~~~cpp
@@ -892,7 +891,7 @@ PairWiseMatchingToAdjacencyMatrixSVG(vec_fileNames.size(), map_GeometricMatches,
 }
 
 ~~~
-函数 Robust_model_estimation
+#### 函数 Robust_model_estimation
 ~~~cpp
 template<typename GeometryFunctor>
 void ImageCollectionGeometricFilter::Robust_model_estimation
@@ -966,5 +965,112 @@ void ImageCollectionGeometricFilter::Robust_model_estimation
             ++(*my_progress_bar);
         }
 	}
+}
+~~~
+
+### step4: main_GlobalSfM.cpp
+全局运动恢复结构
+~~~cpp
+$
+~~~
+
+#### 输入输出说明
+~~~cpp
+std::string sSfM_Data_Filename{"../img_list_output/sfm_data.json"};
+//sfm_data.json路径
+std::string sMatchesDir{"../feature_output"},
+//几何匹配的路径
+sMatchFilename{"matches.f.bin"};
+//匹配的文件名
+std::string sOutDir{"../sfm_output"};
+//输出路径
+int iRotationAveragingMethod = int (ROTATION_AVERAGING_L2);
+//参数：设置旋转平均法
+int iTranslationAveragingMethod = int (TRANSLATION_AVERAGING_SOFTL1);
+//参数：设置转换平均法
+std::string sIntrinsic_refinement_options = "ADJUST_ALL";
+//参数： 内在参数，用于控制哪一个摄像机参数必须被视为保持不变的变量以进行非线性细化的类型
+//NONE 固有参数将被视为固定参数
+//ADJUST_FOCAL_LENGTH 焦距将被视为细化的变量
+//ADJUST_PRINCIPAL_POINT 将主点视为细化变量
+//ADJUST_DISTORTION 畸变参数将被视为细化的变量
+//ADJUST_ALL 所有参数将被视为细化变量
+~~~
+#### 参数初始化
+~~~cpp
+// iRotationAveragingMethod
+if (iRotationAveragingMethod < ROTATION_AVERAGING_L1 ||
+iRotationAveragingMethod > ROTATION_AVERAGING_L2 )
+//判定iRotationAveragingMethod可用
+
+// intrinsic_refinement_options
+const cameras::Intrinsic_Parameter_Type intrinsic_refinement_options =
+cameras::StringTo_Intrinsic_Parameter_Type(sIntrinsic_refinement_options);
+//设置相机内参矩阵参数并判定（判定略）
+
+// sfm_data读取
+SfM_Data sfm_data;
+if (!Load(sfm_data, sSfM_Data_Filename, ESfM_Data(VIEWS|INTRINSICS)))
+    
+    
+// sImage_describer从图像描述符文件初始化区域类型（用于图像区域提取）
+using namespace openMVG::features;
+const std::string sImage_describer = stlplus::create_filespec
+(sMatchesDir, "image_describer", "json");
+std::unique_ptr<Regions> regions_type = Init_region_type_from_file(sImage_describer);
+
+//feats_provider特征读取
+std::shared_ptr<Features_Provider> feats_provider = std::make_shared<Features_Provider>();
+if (!feats_provider->load(sfm_data, sMatchesDir, regions_type))
+
+// matches_provider匹配读取
+std::shared_ptr<Matches_Provider> matches_provider = std::make_shared<Matches_Provider>();
+if (
+    !(matches_provider->load(sfm_data, sMatchFilename) ||
+    matches_provider->load(sfm_data, stlplus::create_filespec(sMatchesDir, "matches.e.txt")) ||
+    matches_provider->load(sfm_data, stlplus::create_filespec(sMatchesDir, "matches.e.bin")))
+    )
+// 输出文件夹判定
+~~~
+#### 全局SfM重建过程
+~~~cpp
+// sfmEngine建立(sfmdata，输出路径，输出路径+Reconstruction_Report.html)
+GlobalSfMReconstructionEngine_RelativeMotions sfmEngine(sfm_data, sOutDir,
+    stlplus::create_filespec(sOutDir, "Reconstruction_Report.html"));
+
+// 配置特征与匹配feats_provider，matches_provider
+sfmEngine.SetFeaturesProvider(feats_provider.get());
+sfmEngine.SetMatchesProvider(matches_provider.get());
+
+// 配置重建参数intrinsic_refinement_options
+sfmEngine.Set_Intrinsics_Refinement_Type(intrinsic_refinement_options);
+
+// 配置运动平均方法iRotationAveragingMethod，intrinsic_refinement_options
+sfmEngine.SetRotationAveragingMethod(ERotationAveragingMethod(iRotationAveragingMethod));
+sfmEngine.SetTranslationAveragingMethod(ETranslationAveragingMethod(iTranslationAveragingMethod));
+
+// BA开始
+if (sfmEngine.Process())		//进行计算的函数
+{
+    std::cout << std::endl << " Total Ac-Global-Sfm took (s): " << timer.elapsed() << std::endl;
+    //输出报告
+    std::cout << "...Generating SfM_Report.html" << std::endl;
+    Generate_SfM_Report(sfmEngine.Get_SfM_Data(),
+    stlplus::create_filespec(sOutDir, "SfMReconstruction_Report.html"));
+
+    //导出计算场景（数据和可视化结果）
+    std::cout << "...Export SfM_Data to disk." << std::endl;
+    Save(sfmEngine.Get_SfM_Data(), stlplus::create_filespec(sOutDir, "sfm_data", ".bin"), ESfM_Data(ALL));
+    Save(sfmEngine.Get_SfM_Data(), stlplus::create_filespec(sOutDir, "cloud_and_poses", ".ply"), ESfM_Data(ALL));
+    
+    //ESfM_Data说明
+    //VIEWS           =  1,
+    //EXTRINSICS      =  2,
+    //INTRINSICS      =  4,
+    //STRUCTURE       =  8,
+    //CONTROL_POINTS  = 16,
+    //ALL = VIEWS | EXTRINSICS | INTRINSICS | STRUCTURE | CONTROL_POINTS
+    
+    return EXIT_SUCCESS;
 }
 ~~~
