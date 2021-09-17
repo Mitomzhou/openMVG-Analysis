@@ -1,7 +1,8 @@
 # openMVG源码解析
 
 ## 源码结构
-### 转载自 [知乎@迷途小书童](https://zhuanlan.zhihu.com/p/97210820?from_voters_page=true)
+### 整体框架转载自 [知乎@迷途小书童](https://zhuanlan.zhihu.com/p/97210820?from_voters_page=true)
+### 源码细节转载自 [CSDN@蒲毛](https://blog.csdn.net/qq_40084959/category_11086693.html)
 #### openMVG尽力提供可读性强的代码，方便二次开发，核心库尽可能精简，全局分成了几个大的模块：
 * 核心库：各个功能的核心算法实现
 * 样例：教你怎么用核心库实现高级算法
