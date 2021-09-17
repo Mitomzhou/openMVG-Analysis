@@ -6,13 +6,13 @@
 * 核心库：各个功能的核心算法实现
 * 样例：教你怎么用核心库实现高级算法
 * 工具链：也就是连起来用咯（无序影像特征匹配，完整SfM，影像色彩处理）
-#### src部分模块 
-  * /src/dependencies 依赖库，包括gLfw, cereal, osi clp；
-  * /src/nonFree SIFT特征提取
-  * /src/openMVG 是多视图几何（MVG）和SfM的核心库
-  * /src/openMVG_Samples 展示如何使用核心库实现高级算法，主要涉及相对定向、特征匹配的鲁棒策略等；
-  * /src/software 提供用户使用的软件接口，主要实现了SfM及可视化，视觉里程计（Visual Odometry）,地理坐标系转换，UI便于输入控制点数据；
-  * /src/third_party 是底层第三方库，主要有ceres-solver，eigen，fast，stlplus3，jpeg等；
+#### src部分模块
+* /src/dependencies 依赖库，包括gLfw, cereal, osi clp；
+* /src/nonFree SIFT特征提取
+* /src/openMVG 是多视图几何（MVG）和SfM的核心库
+* /src/openMVG_Samples 展示如何使用核心库实现高级算法，主要涉及相对定向、特征匹配的鲁棒策略等；
+* /src/software 提供用户使用的软件接口，主要实现了SfM及可视化，视觉里程计（Visual Odometry）,地理坐标系转换，UI便于输入控制点数据；
+* /src/third_party 是底层第三方库，主要有ceres-solver，eigen，fast，stlplus3，jpeg等；
 #### /src/openMVG 核心库各个模块名称、功能、包含的文件数如下表所示：
 |  模块   | 功能  |
 |  ----  | ----  |
@@ -71,7 +71,7 @@
 
 ## tutorial_demo.py
 
-### step1: main_SfMInit_ImageListing.cpp 
+### step1: main_SfMInit_ImageListing.cpp
 [step1官方文档](https://openmvg.readthedocs.io/en/latest/software/SfM/SfMInit_ImageListing/)
 
 输入图像和相机数据库，输出sfm_data.json包含图像尺寸，焦距（单位像素）
@@ -109,9 +109,9 @@ focal = std::max(width, height) * exifReader->getFocal() / ccdw;
 ~~~
 #### 相机焦距计算（单位像素）
 **focal = max(w, h) * F / S**
- * F：相机焦距长度(focal length，单位毫米mm)
- * w,h: 图片的宽高
- * S: ccd传感器孔径（sensor size，单位mm）
+* F：相机焦距长度(focal length，单位毫米mm)
+* w,h: 图片的宽高
+* S: ccd传感器孔径（sensor size，单位mm）
 #### 相机模型
 ~~~cpp
 enum EINTRINSIC
@@ -350,7 +350,7 @@ std::string sImage_Describer_Method = "SIFT_ANATOMY";		//使用的描述子
 bool bForce = false;		//
 std::string sFeaturePreset = "";		//描述子质量NORMAL，HIGH，ULTRA
 ~~~
-预设置 
+预设置
 ~~~cpp
 // 设置好描述子类型与描述子质量后，导出用于动态未来区域计算和/或加载的所用图像描述符和区域类型
 std::ofstream stream(sImage_describer.c_str());
@@ -539,4 +539,431 @@ int imax_iteration = 2048;
 // 0->默认区域提供程序（在内存中加载和存储所有区域）
 // other->缓存区域提供程序（按需加载和存储区域）
 unsigned int ui_max_cache_size = 0;
+~~~
+匹配流程
+
+a. 计算描述子匹配
+~~~cpp
+// 加载SfM_Data
+SfM_Data sfm_data;
+if (!Load(sfm_data, sSfM_Data_Filename, ESfM_Data(VIEWS|INTRINSICS)))
+{
+    std::cerr << std::endl
+    << "The input SfM_Data file \""<< sSfM_Data_Filename << "\" cannot be read." << std::endl;
+    return EXIT_FAILURE;
+}
+// 匹配的描述子初始化
+using namespace openMVG::features;
+const std::string sImage_describer = stlplus::create_filespec(sMatchesDirectory, "image_describer", "json");
+std::unique_ptr<Regions> regions_type = Init_region_type_from_file(sImage_describer);
+if (!regions_type)
+{
+    std::cerr << "Invalid: "
+    << sImage_describer << " regions type file." << std::endl;
+    return EXIT_FAILURE;
+}
+
+//开始进行匹配，匹配方式有三种，第一部分有说明
+
+//加载相应的视图区域
+std::shared_ptr<Regions_Provider> regions_provider;
+//Regions_Provider抽象区域提供程序允许加载和返回与视图相关的区域
+if (ui_max_cache_size == 0)
+    //默认区域提供程序（在内存中加载和存储所有区域）
+    regions_provider = std::make_shared<Regions_Provider>();
+else
+    //缓存区域提供程序（按需加载和存储区域）
+    regions_provider = std::make_shared<Regions_Provider_Cache>(ui_max_cache_size);
+// 读取区域类型
+C_Progress_display progress;
+if (!regions_provider->load(sfm_data, sMatchesDirectory, regions_type, &progress))
+{
+    std::cerr << std::endl << "Invalid regions." << std::endl;
+    return EXIT_FAILURE;
+}
+// 读取图片的基本信息名称以及宽高
+//从SfM数据视图数据生成一些别名：
+//-将视图列为文件名和图像大小的矢量
+std::vector<std::string> vec_fileNames;
+std::vector<std::pair<size_t, size_t>> vec_imagesSize;
+{
+    //reserve预留空间
+    vec_fileNames.reserve(sfm_data.GetViews().size());
+    vec_imagesSize.reserve(sfm_data.GetViews().size());
+    for (Views::const_iterator iter = sfm_data.GetViews().begin();
+        iter != sfm_data.GetViews().end();
+        ++iter)
+    {
+        const View * v = iter->second.get();
+        vec_fileNames.push_back(stlplus::create_filespec(sfm_data.s_root_path,
+        v->s_Img_path));
+        vec_imagesSize.push_back( std::make_pair( v->ui_width, v->ui_height));
+    }
+}
+/***
+ * 提供了三种图片匹配方式：
+全部、相邻、从文件；
+
+以及7种描述子匹配方式：
+AUTO、BRUTEFORCEL2、BRUTEFORCEHAMMING、HNSWL2、
+ANNL2、CASCADEHASHINGL2、FASTCASCADEHASHINGL2
+
+这段代码是，读取之前处理好的，以及选择图片匹配方式，以及描述子匹配方式，还没有开始计算。
+*/
+PairWiseMatches map_PutativesMatches;
+std::cout << std::endl << " - PUTATIVE MATCHES - " << std::endl;
+//如果匹配项已经存在，请重新加载它们，使用bForce开启是否重新加载
+if (!bForce && (stlplus::file_exists(sMatchesDirectory + "/matches.putative.txt")
+|| stlplus::file_exists(sMatchesDirectory + "/matches.putative.bin")))
+{
+    if (!(Load(map_PutativesMatches, sMatchesDirectory + "/matches.putative.bin") ||
+        Load(map_PutativesMatches, sMatchesDirectory + "/matches.putative.txt")) )
+    {
+        std::cerr << "Cannot load input matches file";
+        return EXIT_FAILURE;
+    }
+    std::cout << "\t PREVIOUS RESULTS LOADED;" << " #pair: " << map_PutativesMatches.size() << std::endl;
+}
+else // Compute the putative matches
+{
+    std::cout << "Use: ";
+    switch (ePairmode)
+    {
+        case PAIR_EXHAUSTIVE: std::cout << "exhaustive pairwise matching" << std::endl; break;
+        case PAIR_CONTIGUOUS: std::cout << "sequence pairwise matching" << std::endl; break;
+        case PAIR_FROM_FILE:  std::cout << "user defined pairwise matching" << std::endl; break;
+    }
+
+//Allocate the right Matcher according the Matching requested method
+//根据匹配请求的方法分配正确的匹配器
+//Matcher一个图像采集匹配器的实现计算一组图片之间的假定匹配
+std::unique_ptr<Matcher> collectionMatcher;
+if (sNearestMatchingMethod == "AUTO")
+{
+    //BRUTE_FORCE_L2,蛮力L2，
+    //ANN_L2,安L2，
+    //CASCADE_HASHING_L2,级联哈希L2，
+    //HNSW_L2,
+    //BRUTE_FORCE_HAMMING暴力汉明
+    if (regions_type->IsScalar())//标量
+    {
+        std::cout << "Using FAST_CASCADE_HASHING_L2 matcher" << std::endl;
+        //reset智能指针指向的新对象
+        //从SfM数据视图数据构建一些别名：将视图列为文件名和图像大小的向量
+        //
+        //Cascade_Hashing_Matcher_Regions一个图像采集匹配器的实现计算一组图片之间的
+        //假定匹配通过使用两个最近邻居的距离比的阈值丢弃虚假的对应。
+        //使用级联哈希匹配级联哈希表计算一次并用于所有区域。
+        collectionMatcher.reset(new Cascade_Hashing_Matcher_Regions(fDistRatio));
+    }
+    else{
+        if (regions_type->IsBinary())//二进制的
+        {
+            std::cout << "Using BRUTE_FORCE_HAMMING matcher" << std::endl;
+            //Matcher_Regions
+            //一个图像采集匹配器的实现计算一组图片之间的假定匹配通过使用两个最近邻居的距离比的阈值丢弃虚假的对应。
+            collectionMatcher.reset(new Matcher_Regions(fDistRatio, BRUTE_FORCE_HAMMING));
+        }
+    }
+}
+else
+    if (sNearestMatchingMethod == "BRUTEFORCEL2")
+    {
+        std::cout << "Using BRUTE_FORCE_L2 matcher" << std::endl;
+        collectionMatcher.reset(new Matcher_Regions(fDistRatio, BRUTE_FORCE_L2));
+        }
+        else
+        if (sNearestMatchingMethod == "BRUTEFORCEHAMMING")
+        {
+        std::cout << "Using BRUTE_FORCE_HAMMING matcher" << std::endl;
+        collectionMatcher.reset(new Matcher_Regions(fDistRatio, BRUTE_FORCE_HAMMING));
+        }
+        else
+        if (sNearestMatchingMethod == "HNSWL2")
+        {
+        std::cout << "Using HNSWL2 matcher" << std::endl;
+        collectionMatcher.reset(new Matcher_Regions(fDistRatio, HNSW_L2));
+        }
+        else
+        if (sNearestMatchingMethod == "ANNL2")
+        {
+        std::cout << "Using ANN_L2 matcher" << std::endl;
+        collectionMatcher.reset(new Matcher_Regions(fDistRatio, ANN_L2));
+        }
+        else
+        if (sNearestMatchingMethod == "CASCADEHASHINGL2")
+        {
+        std::cout << "Using CASCADE_HASHING_L2 matcher" << std::endl;
+        collectionMatcher.reset(new Matcher_Regions(fDistRatio, CASCADE_HASHING_L2));
+        }
+        else
+        if (sNearestMatchingMethod == "FASTCASCADEHASHINGL2")
+        {
+        std::cout << "Using FAST_CASCADE_HASHING_L2 matcher" << std::endl;
+        collectionMatcher.reset(new Cascade_Hashing_Matcher_Regions(fDistRatio));
+        }
+        if (!collectionMatcher)
+        {
+        std::cerr << "Invalid Nearest Neighbor method: " << sNearestMatchingMethod << std::endl;
+        }
+    return EXIT_FAILURE;
+}
+
+// 这里才开始正式计算，以及进行保存，以及匹配表示图，数据里面那个三角一样的图，越密集则BA越困难。
+
+// Perform the matching
+system::Timer timer;
+{
+    // From matching mode compute the pair list that have to be matched:
+    Pair_Set pairs;
+    switch (ePairmode)
+    {
+        case PAIR_EXHAUSTIVE: pairs = exhaustivePairs(sfm_data.GetViews().size()); break;
+        case PAIR_CONTIGUOUS: pairs = contiguousWithOverlap(sfm_data.GetViews().size(), iMatchingVideoMode); break;
+        case PAIR_FROM_FILE:
+        if (!loadPairs(sfm_data.GetViews().size(), sPredefinedPairList, pairs))
+        {
+        return EXIT_FAILURE;
+        }
+        break;
+    }
+    // Photometric matching of putative pairs
+    //假设对的照片匹配
+    collectionMatcher->Match(regions_provider, pairs, map_PutativesMatches, &progress);
+    //---------------------------------------
+    //-- Export putative matches导出假定匹配
+    //---------------------------------------
+    if (!Save(map_PutativesMatches, std::string(sMatchesDirectory + "/matches.putative.bin")))
+    {
+        std::cerr
+        << "Cannot save computed matches in: "
+        << std::string(sMatchesDirectory + "/matches.putative.bin");
+        return EXIT_FAILURE;
+    }
+}
+
+std::cout << "Task (Regions Matching) done in (s): " << timer.elapsed() << std::endl;
+//-- export putative matches Adjacency matrix
+//导出假定匹配邻接矩阵
+PairWiseMatchingToAdjacencyMatrixSVG(vec_fileNames.size(),
+map_PutativesMatches,
+stlplus::create_filespec(sMatchesDirectory, "PutativeAdjacencyMatrix", "svg"));
+//-- export view pair graph once putative graph matches have been computed
+//一旦计算出假定的图匹配，就导出视图对图
+{
+    std::set<IndexT> set_ViewIds;
+    std::transform(sfm_data.GetViews().begin(), sfm_data.GetViews().end(),
+    std::inserter(set_ViewIds, set_ViewIds.begin()), stl::RetrieveKey());
+    graph::indexedGraph putativeGraph(set_ViewIds, getPairs(map_PutativesMatches));
+    graph::exportToGraphvizData(stlplus::create_filespec(sMatchesDirectory, "putative_matches"),putativeGraph);
+}
+
+~~~
+b. 计算里程计
+
+有了图像之间描述子的匹配，按测绘的角度来说就可以后方交会了，这里便是计算里程计的流程，并且提供了滤波去除了部分粗差。
+~~~cpp
+/**这里ImageCollectionGeometricFilter类承担了计算里程计的任务，提供了6种方法进行计算：
+HOMOGRAPHY_MATRIX、FUNDAMENTAL_MATRIX、ESSENTIAL_MATRIX、
+ESSENTIAL_MATRIX_ANGULAR、ESSENTIAL_MATRIX_ORTHO、ESSENTIAL_MATRIX_UPRIGHT
+各种方式的优点缺点见论文
+ */
+//ImageCollectionGeometricFilter
+//只允许保持几何一致的匹配
+//它丢弃了不能产生有效鲁棒模型估计的对
+std::unique_ptr<ImageCollectionGeometricFilter> filter_ptr(new ImageCollectionGeometricFilter(&sfm_data, regions_provider));
+
+if (filter_ptr)
+{
+    system::Timer timer;
+    const double d_distance_ratio = 0.6;
+
+    PairWiseMatches map_GeometricMatches;
+    switch (eGeometricModelToCompute)
+    {
+        case HOMOGRAPHY_MATRIX:
+        {
+        const bool bGeometric_only_guided_matching = true;
+        filter_ptr->Robust_model_estimation(
+        GeometricFilter_HMatrix_AC(4.0, imax_iteration),
+        map_PutativesMatches, bGuided_matching,
+        bGeometric_only_guided_matching ? -1.0 : d_distance_ratio, &progress);
+        map_GeometricMatches = filter_ptr->Get_geometric_matches();
+        }
+        break;
+        case FUNDAMENTAL_MATRIX:
+        {
+        filter_ptr->Robust_model_estimation(
+        GeometricFilter_FMatrix_AC(4.0, imax_iteration),
+        map_PutativesMatches, bGuided_matching, d_distance_ratio, &progress);
+        map_GeometricMatches = filter_ptr->Get_geometric_matches();
+        }
+        break;
+        case ESSENTIAL_MATRIX:
+        {
+        filter_ptr->Robust_model_estimation(
+        GeometricFilter_EMatrix_AC(4.0, imax_iteration),
+        map_PutativesMatches, bGuided_matching, d_distance_ratio, &progress);
+        map_GeometricMatches = filter_ptr->Get_geometric_matches();
+        
+        //-- Perform an additional check to remove pairs with poor overlap
+        //执行附加检查以移除重叠不良的对
+        std::vector<PairWiseMatches::key_type> vec_toRemove;
+        for (const auto & pairwisematches_it : map_GeometricMatches)
+        {
+        const size_t putativePhotometricCount = map_PutativesMatches.find(pairwisematches_it.first)->second.size();
+        const size_t putativeGeometricCount = pairwisematches_it.second.size();
+        const float ratio = putativeGeometricCount / static_cast<float>(putativePhotometricCount);
+        if (putativeGeometricCount < 50 || ratio < .3f)
+        {
+        // the pair will be removed
+        vec_toRemove.push_back(pairwisematches_it.first);
+        }
+        }
+        //-- remove discarded pairs
+        for (const auto & pair_to_remove_it : vec_toRemove)
+        {
+        map_GeometricMatches.erase(pair_to_remove_it);
+        }
+        }
+        break;
+        case ESSENTIAL_MATRIX_ANGULAR:
+        {
+        filter_ptr->Robust_model_estimation(
+        GeometricFilter_ESphericalMatrix_AC_Angular<false>(4.0, imax_iteration),
+        map_PutativesMatches, bGuided_matching, d_distance_ratio, &progress);
+        map_GeometricMatches = filter_ptr->Get_geometric_matches();
+        }
+        break;
+        case ESSENTIAL_MATRIX_ORTHO:
+        {
+        filter_ptr->Robust_model_estimation(
+        GeometricFilter_EOMatrix_RA(2.0, imax_iteration),
+        map_PutativesMatches, bGuided_matching, d_distance_ratio, &progress);
+        map_GeometricMatches = filter_ptr->Get_geometric_matches();
+        }
+        break;
+        case :
+        {
+        filter_ptr->Robust_model_estimation(
+        GeometricFilter_ESphericalMatrix_AC_Angular<true>(4.0, imax_iteration),
+        map_PutativesMatches, bGuided_matching, d_distance_ratio, &progress);
+        map_GeometricMatches = filter_ptr->Get_geometric_matches();
+        }
+        break;
+    }
+
+// 对里程点文件的导出保存
+
+//---------------------------------------
+//-- Export geometric filtered matches
+//导出几何过滤匹配
+//---------------------------------------
+if (!Save(map_GeometricMatches, std::string(sMatchesDirectory + "/" + sGeometricMatchesFilename)))
+{
+    std::cerr
+    << "Cannot save computed matches in: "
+    << std::string(sMatchesDirectory + "/" + sGeometricMatchesFilename);
+    return EXIT_FAILURE;
+}
+
+std::cout << "Task done in (s): " << timer.elapsed() << std::endl;
+
+// -- export Geometric View Graph statistics
+//导出几何视图图形统计信息
+graph::getGraphStatistics(sfm_data.GetViews().size(), getPairs(map_GeometricMatches));
+
+//-- export Adjacency matrix
+//导出邻接矩阵
+std::cout << "\n Export Adjacency Matrix of the pairwise's geometric matches" << std::endl;
+PairWiseMatchingToAdjacencyMatrixSVG(vec_fileNames.size(), map_GeometricMatches, 
+                                     stlplus::create_filespec(sMatchesDirectory, "GeometricAdjacencyMatrix", "svg"));
+
+//-- export view pair graph once geometric filter have been done
+// 完成几何过滤后导出视图对图
+{
+    std::set<IndexT> set_ViewIds;
+    std::transform(sfm_data.GetViews().begin(), sfm_data.GetViews().end(),
+    std::inserter(set_ViewIds, set_ViewIds.begin()), stl::RetrieveKey());
+    graph::indexedGraph putativeGraph(set_ViewIds, getPairs(map_GeometricMatches));
+    graph::exportToGraphvizData(
+    stlplus::create_filespec(sMatchesDirectory, "geometric_matches"), putativeGraph);
+}
+
+~~~
+函数 Robust_model_estimation
+~~~cpp
+template<typename GeometryFunctor>
+void ImageCollectionGeometricFilter::Robust_model_estimation
+(
+    const GeometryFunctor & functor,
+    //functor文中使用的是GeometricFilter_HMatrix_AC等等（后面讲解）
+    const PairWiseMatches & putative_matches,
+    //PairWiseMatches继承于std::map<Pair, IndMatches>
+    //IndMatches是std::vector<matching::IndMatch>
+    //matching::IndMatch是结构以保存成对索引的引用，存在排序运算符以删除IndMatch序列的重复项。
+    //也就是放入匹配点的数据结构
+    const bool b_guided_matching,
+
+    const double d_distance_ratio,
+	  
+    C_Progress * my_progress_bar
+    //进度条
+	)
+	{
+        if (!my_progress_bar)
+            my_progress_bar = &C_Progress::dummy();
+        my_progress_bar->restart( putative_matches.size(), "\n- Geometric filtering -\n" );
+	
+	#ifdef OPENMVG_USE_OPENMP
+	#pragma omp parallel for schedule(dynamic)
+	#endif
+        for (int i = 0; i < (int)putative_matches.size(); ++i)
+        {
+            if (my_progress_bar->hasBeenCanceled())
+              continue;
+            auto iter = putative_matches.begin();
+            advance(iter,i);
+    
+            Pair current_pair = iter->first;
+            const std::vector<IndMatch> & vec_PutativeMatches = iter->second;
+    
+        //-- Apply the geometric filter (robust model estimation)
+            {
+              IndMatches putative_inliers;
+              GeometryFunctor geometricFilter = functor; // use a copy since we are in a multi-thread context
+              if (geometricFilter.Robust_estimation(
+                sfm_data_,
+                regions_provider_,
+                iter->first,
+                vec_PutativeMatches,
+                putative_inliers))
+              {
+                if (b_guided_matching)
+                {
+                  IndMatches guided_geometric_inliers;
+                  geometricFilter.Geometry_guided_matching(
+                    sfm_data_,
+                    regions_provider_,
+                    iter->first,
+                    d_distance_ratio,
+                    guided_geometric_inliers);
+                  //std::cout
+                  // << "#before/#after: " << putative_inliers.size()
+                  // << "/" << guided_geometric_inliers.size() << std::endl;
+                  std::swap(putative_inliers, guided_geometric_inliers);
+                }
+        
+            #ifdef OPENMVG_USE_OPENMP
+            #pragma omp critical
+            #endif
+                {
+                  _map_GeometricMatches.insert( {current_pair, std::move(putative_inliers)});
+                }
+              }
+            }
+            ++(*my_progress_bar);
+        }
+	}
+}
 ~~~
