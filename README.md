@@ -48,17 +48,16 @@
 |  cxsparse   | 为ceres-solver的稀疏矩阵计算提供支持。  |
 |  easyexif   | exif解析库简化版  |
 |  eigen   | 用于线性代数，矩阵和矢量运算，数值求解，仅由模板头文件组成的的高级C++库。 |
-|  fast   | 功能  |
 |  flann   | 用于在高维空间中执行快速近似最近邻搜索的库。  |
 |  histogram   | 计算数据统计分布的轻量级类。  |
 |  hnswlib   | 快速近似最近邻搜索  |
 |  htmlDoc   | 简化HTML数据导出的类。  |
-|  jpeg   | 功能  |
+|  jpeg   | jpeg图像库  |
 |  lemon   | C ++模板库，为图网络计算提供提供常见的数据结构和算法。  |
-|  png   | 功能  |
+|  png   | png图像库  |
 |  progress   | 用于处理应用程序的进度状态的轻量级类。  |
 |  stlplus3   | C++ STL库，包含扩展的模板容器、可重用子系统、数据持久性和可移植组件。  |
-|  tiff   | 功能  |
+|  tiff   | tiff图像库  |
 |  vectorGraphics   | 矢量图形库  |
 |  zlib   | 数据压缩用的库  |
 
