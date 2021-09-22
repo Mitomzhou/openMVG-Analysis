@@ -1,5 +1,5 @@
 # openMVG源码解析
-对官方源码简要解析，并自己按照官方project，创建一个简要openMVGLite版本。
+对官方源码简要解析，并自己按照官方project，创建一个简要openMVGLite版本，便于深入调试和了解源码细节。
 
 ## 源码结构
 ### [openMVG官方github](https://github.com/openMVG/openMVG)
